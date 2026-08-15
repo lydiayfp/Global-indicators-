@@ -1,1 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Macro & Rates Desk — Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#090d16; --panel:#10172a; --panel-2:#0d1322; --border:#212c46; --border-soft:#1a2338;
+    --text:#e9eefb; --text-dim:#8593b3; --text-faint:#58637f;
+    --up:#3ecf8e; --down:#ff6b6b; --flat:#f2b84b; --blue:#5ea8ff;
+    --mono:'IBM Plex Mono', ui-monospace, monospace; --display:'Space Grotesk','Inter',sans-serif; --body:'Inter',-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background: radial-gradient(circle at 20% -10%, #101a30 0%, var(--bg) 45%); color:var(--text); font-family:var(--body); padding:28px 20px 60px; min-height:100vh; }
+  .wrap{ max-width:980px; margin:0 auto; }
+  header{ display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:14px; border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:20px; }
+  .eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:.18em; color:var(--blue); text-transform:uppercase; margin-bottom:6px; }
+  h1{ font-family:var(--display); font-weight:700; font-size:26px; letter-spacing:-0.01em; }
+  .asof{ font-family:var(--mono); font-size:12px; color:var(--text-dim); text-align:right; }
+  .asof span{ color:var(--text); }
+
+  .banner{ background:linear-gradient(180deg,#14203a,#0f1830); border:1px solid var(--border-soft); border-left:3px solid var(--flat); border-radius:8px; padding:12px 16px; font-size:13px; color:var(--text-dim); line-height:1.55; margin-bottom:18px; }
+  .banner b{ color:var(--text); }
+
+  .settings{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px 18px; margin-bottom:22px; }
+  .settings-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .settings label{ font-family:var(--mono); font-size:11px; color:var(--text-faint); display:block; margin-bottom:5px; }
+  .settings input{ background:var(--panel-2); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:13px; padding:8px 10px; border-radius:6px; min-width:280px; flex:1; }
+  .key-status{ font-family:var(--mono); font-size:11px; color:var(--text-faint); margin-top:8px; }
+  .key-status.ok{ color:var(--up); }
+
+  .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:26px; }
+  @media (max-width:720px){ .grid{ grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:460px){ .grid{ grid-template-columns:1fr;} }
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px 16px 14px; position:relative; min-height:118px; }
+  .card-label{ font-size:11.5px; color:var(--text-dim); font-weight:500; text-transform:uppercase; letter-spacing:.04em; margin-bottom:10px; min-height:28px; line-height:1.3; }
+  .card-value{ font-family:var(--mono); font-weight:600; font-size:24px; display:flex; align-items:baseline; gap:4px; }
+  .card-value .unit{ font-size:13px; color:var(--text-faint); font-weight:400; }
+  .card-change{ margin-top:8px; font-family:var(--mono); font-size:12.5px; display:inline-flex; align-items:center; gap:5px; }
+  .card-change.up{ color:var(--up); } .card-change.down{ color:var(--down); } .card-change.flat{ color:var(--flat); }
+  .card-note{ margin-top:8px; font-size:11px; color:var(--text-faint); line-height:1.4; }
+  .card-time{ position:absolute; top:14px; right:14px; font-family:var(--mono); font-size:9.5px; color:var(--text-faint); }
+  .card.loading .card-value{ color:var(--text-faint); }
+  .card.error{ border-color:rgba(255,107,107,0.4); }
+  .card.error .card-note{ color:var(--down); }
+
+  .panel{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:22px 22px 18px; margin-bottom:20px; }
+  .panel-head{ display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:6px; }
+  .panel-title{ font-family:var(--display); font-weight:600; font-size:17px; }
+  .panel-sub{ font-size:12px; color:var(--text-dim); margin-top:3px; }
+  .spread-badge{ font-family:var(--mono); font-size:12px; padding:6px 12px; border-radius:20px; border:1px solid var(--border-soft); white-space:nowrap; }
+  .spread-badge.normal{ color:var(--up); border-color:rgba(62,207,142,.35); background:rgba(62,207,142,.08); }
+  .spread-badge.inverted{ color:var(--down); border-color:rgba(255,107,107,.35); background:rgba(255,107,107,.08); }
+
+  svg{ width:100%; height:auto; margin-top:14px; }
+  .grid-line{ stroke:var(--border-soft); stroke-width:1; }
+  .curve-line{ fill:none; stroke:var(--blue); stroke-width:2.25; }
+  .curve-area{ fill:url(#curveGradient); opacity:.5; }
+  .curve-dot{ fill:#0a0f1c; stroke:var(--blue); stroke-width:2; }
+  .axis-label{ font-family:var(--mono); font-size:10.5px; fill:var(--text-faint); }
+  .value-label{ font-family:var(--mono); font-size:10.5px; fill:var(--text-dim); }
+
+  .actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; align-items:center; }
+  button.primary{ background:var(--blue); color:#06101f; border:none; font-family:var(--body); font-weight:600; font-size:13px; padding:9px 16px; border-radius:7px; cursor:pointer; }
+  button.primary:disabled{ opacity:.5; cursor:not-allowed; }
+  button.primary:hover:not(:disabled){ filter:brightness(1.08); }
+  button.ghost{ background:transparent; color:var(--text-dim); border:1px solid var(--border); font-size:13px; padding:9px 16px; border-radius:7px; cursor:pointer; }
+  button.ghost:hover{ color:var(--text); border-color:var(--blue); }
+  .progress{ font-family:var(--mono); font-size:11.5px; color:var(--text-faint); }
+  .progress-bar{ height:3px; background:var(--border); border-radius:2px; overflow:hidden; margin-top:8px; display:none; }
+  .progress-bar.show{ display:block; }
+  .progress-fill{ height:100%; background:var(--blue); width:0%; transition:width .3s ease; }
+
+  .methodology{ font-size:12px; color:var(--text-faint); line-height:1.7; border-top:1px solid var(--border); padding-top:16px; margin-top:24px; }
+  .methodology b{ color:var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="eyebrow">Macro &amp; Rates Desk — Live</div>
+      <h1>Global Market Dashboard</h1>
+    </div>
+    <div class="asof">Last pulled<br><span id="asOfText">not yet fetched</span></div>
+  </header>
+
+  <div class="banner">
+    <b>Live mode, real limits:</b> this pulls from Alpha Vantage's free tier — <b>25 requests/day, 5/minute</b>. A full refresh here uses ~11 calls, so budget roughly two refreshes a day. Results are cached in your browser so reopening this file shows your last pull instantly, with no call spent. S&amp;P 500 and Nasdaq are tracked via the <b>SPY</b> and <b>QQQ</b> ETFs (near-identical moves; free tier has no direct index ticker) — SPY trades at roughly 1/10th the S&amp;P 500 level. If refresh fails immediately with a network error, this sandbox is likely blocking the external call — download the file and open it directly in your own browser instead.
+  </div>
+
+  <div class="settings">
+    <div class="settings-row">
+      <div style="flex:1; min-width:280px;">
+        <label>Alpha Vantage API key</label>
+        <input type="password" id="apiKeyInput" placeholder="Paste your free key — alphavantage.co/support/#api-key">
+      </div>
+      <button class="ghost" id="saveKeyBtn">Save key</button>
+      <button class="ghost" id="showKeyBtn">Show</button>
+    </div>
+    <div class="key-status" id="keyStatus">No key saved yet — get a free one at alphavantage.co/support/#api-key</div>
+  </div>
+
+  <div class="grid" id="cardGrid"></div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <div class="panel-title">US Treasury Yield Curve</div>
+        <div class="panel-sub">Constant-maturity yields — 3M, 2Y, 5Y, 7Y, 10Y, 30Y (free-tier maturities only)</div>
+      </div>
+      <div class="spread-badge" id="spreadBadge">10Y–2Y spread —</div>
+    </div>
+    <svg id="curveSvg" viewBox="0 0 860 280" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#5ea8ff" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#5ea8ff" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <g id="curveGridLines"></g>
+      <path id="curveArea" class="curve-area" d=""></path>
+      <path id="curveLine" class="curve-line" d=""></path>
+      <g id="curveDots"></g>
+      <g id="curveLabels"></g>
+    </svg>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="refreshBtn">Refresh live data</button>
+    <button class="ghost" id="clearCacheBtn">Clear cached data</button>
+    <span class="progress" id="progressText"></span>
+  </div>
+  <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <div class="methodology">
+    <b>Endpoints used:</b> TREASURY_YIELD (per maturity) · CPI (monthly, YoY computed from latest vs. 12 months prior) · GLOBAL_QUOTE for SPY &amp; QQQ (S&amp;P 500 / Nasdaq proxies) &amp; GLD (gold proxy) · BRENT (daily). All via Alpha Vantage's public API, called directly from your browser — your API key is stored only in this artifact's private storage on your device, never sent anywhere except alphavantage.co.<br>
+    <b>Note:</b> ETF proxies (SPY, QQQ, GLD) track their benchmarks closely but aren't identical — expense ratios, dividends, and tracking error mean small persistent gaps. For decisions that matter, cross-check against the index or spot price directly.
+  </div>
+
+</div>
+
+<script>
+const STORAGE_KEY = 'macro-dashboard-live-cache';
+const KEY_STORAGE = 'macro-dashboard-av-key';
+
+let cache = {
+  fetchedAt: null,
+  indicators: {
+    us10y:  { label:'US 10-Year Treasury Yield', unit:'%', value:null, change:null, dir:'flat', note:'', time:null, error:null },
+    sp500:  { label:'S&P 500 (via SPY proxy)', unit:'', value:null, change:null, dir:'flat', note:'SPY ETF, ~1/10th index level', time:null, error:null },
+    nasdaq: { label:'Nasdaq 100 (via QQQ proxy)', unit:'', value:null, change:null, dir:'flat', note:'QQQ ETF tracks Nasdaq-100, not full Composite', time:null, error:null },
+    cpi:    { label:'US CPI Inflation (YoY)', unit:'%', value:null, change:null, dir:'flat', note:'', time:null, error:null },
+    gold:   { label:'Gold (via GLD proxy)', unit:'', value:null, change:null, dir:'flat', note:'GLD ETF, ~1/10th spot oz price', time:null, error:null },
+    brent:  { label:'Brent Crude Oil', unit:'$/bbl', value:null, change:null, dir:'flat', note:'', time:null, error:null }
+  },
+  curve: [
+    { t:'3M', maturity:'3month', y:null },
+    { t:'2Y', maturity:'2year', y:null },
+    { t:'5Y', maturity:'5year', y:null },
+    { t:'7Y', maturity:'7year', y:null },
+    { t:'10Y', maturity:'10year', y:null },
+    { t:'30Y', maturity:'30year', y:null }
+  ]
+};
+
+function arrow(dir){ return dir==='up' ? '▲' : dir==='down' ? '▼' : '—'; }
+function dirClass(dir){ return dir==='up' ? 'up' : dir==='down' ? 'down' : 'flat'; }
+function fmtTime(iso){ if(!iso) return ''; const d = new Date(iso); return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+
+function renderCards(){
+  const grid = document.getElementById('cardGrid');
+  grid.innerHTML = '';
+  Object.entries(cache.indicators).forEach(([id, ind]) => {
+    const card = document.createElement('div');
+    card.className = 'card' + (ind.error ? ' error' : '');
+    card.innerHTML = `
+      <div class="card-time">${fmtTime(ind.time)}</div>
+      <div class="card-label">${ind.label}</div>
+      <div class="card-value">${ind.value !== null ? ind.value : '—'}<span class="unit">${ind.unit}</span></div>
+      <div class="card-change ${dirClass(ind.dir)}">${ind.change !== null ? arrow(ind.dir) + ' ' + ind.change : ''}</div>
+      <div class="card-note">${ind.error ? ind.error : ind.note}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderCurve(){
+  const svg = document.getElementById('curveSvg');
+  const W=860, H=280, padL=46, padR=20, padT=20, padB=34;
+  const plotW = W-padL-padR, plotH = H-padT-padB;
+  const pts = cache.curve.filter(p => p.y !== null);
+  const gridG = document.getElementById('curveGridLines');
+  const dotsG = document.getElementById('curveDots');
+  const labelsG = document.getElementById('curveLabels');
+  gridG.innerHTML = ''; dotsG.innerHTML = ''; labelsG.innerHTML = '';
+  document.getElementById('curveLine').setAttribute('d','');
+  document.getElementById('curveArea').setAttribute('d','');
+
+  if(pts.length < 2){
+    labelsG.innerHTML = `<text class="axis-label" x="${W/2}" y="${H/2}" text-anchor="middle">No curve data yet — click Refresh live data</text>`;
+    return;
+  }
+  const ys = pts.map(p => p.y);
+  const minY = Math.floor(Math.min(...ys)*2)/2 - 0.5;
+  const maxY = Math.ceil(Math.max(...ys)*2)/2 + 0.5;
+  const xFor = i => padL + (i/(cache.curve.length-1)) * plotW;
+  const yFor = v => padT + plotH - ((v-minY)/(maxY-minY)) * plotH;
+
+  for(let s=0; s<=5; s++){
+    const v = minY + (s/5)*(maxY-minY);
+    const y = yFor(v);
+    gridG.innerHTML += `<line class="grid-line" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}"/><text class="axis-label" x="8" y="${y+3}">${v.toFixed(1)}%</text>`;
+  }
+  let linePath='';
+  cache.curve.forEach((p,i) => {
+    if(p.y === null) return;
+    const x = xFor(i), y = yFor(p.y);
+    linePath += (linePath==='' ? 'M':'L') + x + ',' + y + ' ';
+    dotsG.innerHTML += `<circle class="curve-dot" cx="${x}" cy="${y}" r="3.5"/>`;
+    labelsG.innerHTML += `<text class="axis-label" x="${x}" y="${H-10}" text-anchor="middle">${p.t}</text><text class="value-label" x="${x}" y="${y-10}" text-anchor="middle">${p.y.toFixed(2)}</text>`;
+  });
+  const firstIdx = cache.curve.findIndex(p=>p.y!==null);
+  const lastIdx = cache.curve.map(p=>p.y).lastIndexOf(pts[pts.length-1].y);
+  const areaPath = linePath + `L${xFor(lastIdx)},${padT+plotH} L${xFor(firstIdx)},${padT+plotH} Z`;
+  document.getElementById('curveLine').setAttribute('d', linePath);
+  document.getElementById('curveArea').setAttribute('d', areaPath);
+
+  const y10 = cache.curve.find(p=>p.t==='10Y');
+  const y2 = cache.curve.find(p=>p.t==='2Y');
+  const badge = document.getElementById('spreadBadge');
+  if(y10 && y2 && y10.y!==null && y2.y!==null){
+    const spread = y10.y - y2.y;
+    const normal = spread >= 0;
+    badge.textContent = `10Y–2Y spread ${spread>=0?'+':''}${spread.toFixed(2)} pp (${normal?'normal slope':'inverted'})`;
+    badge.className = 'spread-badge ' + (normal ? 'normal':'inverted');
+  } else {
+    badge.textContent = '10Y–2Y spread —';
+    badge.className = 'spread-badge';
+  }
+}
+
+function updateAsOf(){
+  document.getElementById('asOfText').textContent = cache.fetchedAt ? new Date(cache.fetchedAt).toLocaleString() : 'not yet fetched';
+}
+
+let apiKey = '';
+
+async function loadPersisted(){
+  try{
+    const k = await window.storage.get(KEY_STORAGE, false);
+    if(k && k.value){ apiKey = k.value; document.getElementById('apiKeyInput').value = apiKey; setKeyStatus(true); }
+  }catch(e){}
+  try{
+    const c = await window.storage.get(STORAGE_KEY, false);
+    if(c && c.value){ cache = JSON.parse(c.value); }
+  }catch(e){}
+  renderCards(); renderCurve(); updateAsOf();
+}
+
+function setKeyStatus(ok){
+  const el = document.getElementById('keyStatus');
+  el.className = 'key-status' + (ok ? ' ok' : '');
+  el.textContent = ok ? 'Key saved — ready to fetch live data' : 'No key saved yet — get a free one at alphavantage.co/support/#api-key';
+}
+
+document.getElementById('saveKeyBtn').addEventListener('click', async () => {
+  apiKey = document.getElementById('apiKeyInput').value.trim();
+  if(!apiKey){ setKeyStatus(false); return; }
+  try{ await window.storage.set(KEY_STORAGE, apiKey, false); setKeyStatus(true); }
+  catch(e){ document.getElementById('keyStatus').textContent = 'Could not save key (storage unavailable), but it will work for this session.'; }
+});
+document.getElementById('showKeyBtn').addEventListener('click', () => {
+  const input = document.getElementById('apiKeyInput');
+  input.type = input.type === 'password' ? 'text' : 'password';
+});
+
+async function persistCache(){
+  try{ await window.storage.set(STORAGE_KEY, JSON.stringify(cache), false); }catch(e){}
+}
+
+function avUrl(params){
+  const usp = new URLSearchParams({ ...params, apikey: apiKey });
+  return `https://www.alphavantage.co/query?${usp.toString()}`;
+}
+
+async function fetchJSON(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if(data['Note']) throw new Error('Rate limited — free tier allows 5 calls/min, 25/day. Wait a bit and retry.');
+  if(data['Information']) throw new Error(data['Information'].slice(0,120));
+  if(data['Error Message']) throw new Error('API error — check the key or symbol.');
+  return data;
+}
+
+async function fetchTreasuryPoint(point){
+  const data = await fetchJSON(avUrl({ function:'TREASURY_YIELD', interval:'daily', maturity:point.maturity }));
+  const series = data.data;
+  if(!series || !series.length) throw new Error('No data returned');
+  const latest = series.find(d => d.value !== '.') || series[0];
+  point.y = parseFloat(latest.value);
+}
+
+async function fetchCPI(ind){
+  const data = await fetchJSON(avUrl({ function:'CPI', interval:'monthly' }));
+  const series = data.data;
+  if(!series || series.length < 13) throw new Error('Insufficient CPI history returned');
+  const latest = parseFloat(series[0].value);
+  const yearAgo = parseFloat(series[12].value);
+  const yoy = ((latest / yearAgo) - 1) * 100;
+  ind.value = yoy.toFixed(1);
+  ind.change = series[0].date;
+  ind.dir = 'flat';
+  ind.note = 'YoY change, latest BLS monthly index vs. 12 months prior';
+  ind.error = null;
+  ind.time = new Date().toISOString();
+}
+
+async function fetchQuote(ind, symbol, note, scaleNote){
+  const data = await fetchJSON(avUrl({ function:'GLOBAL_QUOTE', symbol }));
+  const q = data['Global Quote'];
+  if(!q || !q['05. price']) throw new Error('No quote returned for ' + symbol);
+  const price = parseFloat(q['05. price']);
+  const changePct = q['10. change percent'] ? q['10. change percent'].replace('%','') : null;
+  ind.value = price.toLocaleString(undefined, {maximumFractionDigits:2});
+  ind.change = changePct !== null ? changePct + '% d/d' : null;
+  ind.dir = changePct !== null ? (parseFloat(changePct) > 0 ? 'up' : parseFloat(changePct) < 0 ? 'down' : 'flat') : 'flat';
+  ind.note = note;
+  ind.error = null;
+  ind.time = new Date().toISOString();
+}
+
+async function fetchBrent(ind){
+  const data = await fetchJSON(avUrl({ function:'BRENT', interval:'daily' }));
+  const series = data.data;
+  if(!series || !series.length) throw new Error('No data returned');
+  const latest = series.find(d => d.value !== '.') || series[0];
+  ind.value = parseFloat(latest.value).toFixed(2);
+  ind.change = latest.date;
+  ind.dir = 'flat';
+  ind.note = 'Daily settlement, $/barrel';
+  ind.error = null;
+  ind.time = new Date().toISOString();
+}
+
+async function fetchUS10Y(ind){
+  const point = cache.curve.find(p => p.t === '10Y');
+  await fetchTreasuryPoint(point);
+  ind.value = point.y.toFixed(2);
+  ind.change = null;
+  ind.dir = 'flat';
+  ind.note = 'Constant-maturity par yield';
+  ind.error = null;
+  ind.time = new Date().toISOString();
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function refreshAll(){
+  if(!apiKey){ setKeyStatus(false); document.getElementById('progressText').textContent = 'Add your API key first.'; return; }
+  const btn = document.getElementById('refreshBtn');
+  const progressText = document.getElementById('progressText');
+  const bar = document.getElementById('progressBar');
+  const fill = document.getElementById('progressFill');
+  btn.disabled = true;
+  bar.classList.add('show');
+
+  const jobs = [
+    { name:'US 10Y yield', fn: () => fetchUS10Y(cache.indicators.us10y) },
+    { name:'S&P 500 (SPY)', fn: () => fetchQuote(cache.indicators.sp500, 'SPY', 'SPY ETF — multiply roughly ×10 for index level') },
+    { name:'Nasdaq (QQQ)', fn: () => fetchQuote(cache.indicators.nasdaq, 'QQQ', 'QQQ ETF tracks Nasdaq-100') },
+    { name:'CPI inflation', fn: () => fetchCPI(cache.indicators.cpi) },
+    { name:'Gold (GLD)', fn: () => fetchQuote(cache.indicators.gold, 'GLD', 'GLD ETF — multiply roughly ×10 for spot oz price') },
+    { name:'Brent crude', fn: () => fetchBrent(cache.indicators.brent) },
+    { name:'Curve 3M', fn: () => fetchTreasuryPoint(cache.curve.find(p=>p.t==='3M')) },
+    { name:'Curve 2Y', fn: () => fetchTreasuryPoint(cache.curve.find(p=>p.t==='2Y')) },
+    { name:'Curve 5Y', fn: () => fetchTreasuryPoint(cache.curve.find(p=>p.t==='5Y')) },
+    { name:'Curve 7Y', fn: () => fetchTreasuryPoint(cache.curve.find(p=>p.t==='7Y')) },
+    { name:'Curve 30Y', fn: () => fetchTreasuryPoint(cache.curve.find(p=>p.t==='30Y')) },
+  ];
+
+  let failures = 0;
+  for(let i = 0; i < jobs.length; i++){
+    progressText.textContent = `Fetching ${i+1} of ${jobs.length}: ${jobs[i].name}...`;
+    fill.style.width = `${Math.round(((i)/jobs.length)*100)}%`;
+    try{
+      await jobs[i].fn();
+    }catch(e){
+      failures++;
+      const key = jobs[i].name.includes('S&P') ? 'sp500' : jobs[i].name.includes('Nasdaq') ? 'nasdaq' :
+                  jobs[i].name.includes('CPI') ? 'cpi' : jobs[i].name.includes('Gold') ? 'gold' :
+                  jobs[i].name.includes('Brent') ? 'brent' : jobs[i].name.includes('10Y') ? 'us10y' : null;
+      if(key) cache.indicators[key].error = e.message;
+      progressText.textContent = `${jobs[i].name} failed: ${e.message}`;
+    }
+    renderCards(); renderCurve();
+    if(i < jobs.length - 1) await sleep(13000); // stay under 5 calls/min
+  }
+  fill.style.width = '100%';
+  cache.fetchedAt = new Date().toISOString();
+  updateAsOf();
+  await persistCache();
+  progressText.textContent = failures === 0 ? 'Refresh complete.' : `Refresh complete with ${failures} error(s) — see cards above.`;
+  btn.disabled = false;
+  setTimeout(() => { bar.classList.remove('show'); fill.style.width='0%'; }, 3000);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+document.getElementById('clearCacheBtn').addEventListener('click', async () => {
+  try{ await window.storage.delete(STORAGE_KEY, false); }catch(e){}
+  location.reload();
+});
+
+loadPersisted();
+</script>
+</body>
+</html>
 
